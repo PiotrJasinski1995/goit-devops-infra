@@ -84,9 +84,9 @@ module "eks" {
   subnet_ids         = module.vpc.public_subnet_ids
   node_group_name    = "${local.project_name}-nodes"
   instance_types     = ["t3.micro"]
-  desired_size       = 10
-  min_size           = 9
-  max_size           = 10
+  desired_size       = 8
+  min_size           = 7
+  max_size           = 8
 }
 
 module "jenkins" {
