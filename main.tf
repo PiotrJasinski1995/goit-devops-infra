@@ -134,3 +134,18 @@ module "rds" {
 
   allowed_cidrs = ["10.0.0.0/16"]
 }
+
+module "monitoring" {
+  source = "./modules/monitoring"
+
+  cluster_name     = module.eks.cluster_name
+  cluster_endpoint = module.eks.cluster_endpoint
+  cluster_ca_data  = module.eks.cluster_certificate_authority_data
+
+  namespace     = "monitoring"
+  chart_version = "58.5.3"
+
+  depends_on = [
+    module.eks
+  ]
+}
