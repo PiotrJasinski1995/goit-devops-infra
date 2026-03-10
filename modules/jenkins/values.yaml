@@ -1,0 +1,22 @@
+controller:
+  serviceType: LoadBalancer
+  admin:
+    createSecret: true
+  installPlugins:
+    - kubernetes
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+
+agent:
+  enabled: true
+
+persistence:
+  enabled: false

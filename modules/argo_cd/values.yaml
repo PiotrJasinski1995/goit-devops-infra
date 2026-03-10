@@ -1,0 +1,50 @@
+server:
+  service:
+    type: LoadBalancer
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "96Mi"
+    limits:
+      cpu: "150m"
+      memory: "192Mi"
+
+configs:
+  params:
+    server.insecure: true
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+applicationSet:
+  enabled: false
+
+redis:
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "50m"
+      memory: "64Mi"
+
+repoServer:
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "96Mi"
+    limits:
+      cpu: "150m"
+      memory: "192Mi"
+
+controller:
+  resources:
+    requests:
+      cpu: "25m"
+      memory: "96Mi"
+    limits:
+      cpu: "150m"
+      memory: "192Mi"
