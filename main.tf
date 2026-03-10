@@ -36,6 +36,15 @@ locals {
   chart_repo_url = "https://github.com/PiotrJasinski1995/goit-devops-charts.git"
   app_repo_url   = "https://github.com/PiotrJasinski1995/goit-devops-app.git"
   git_branch     = "lesson-8-9"
+
+  db_name         = "appdb"
+  db_username     = "dbadmin"
+  db_password     = "examplepassword"
+  db_engine       = "postgres"
+  db_engine_ver   = "16.3"
+  db_instance_cls = "db.t3.micro"
+  use_aurora      = false
+  db_multi_az     = false
 }
 
 module "s3_backend" {
@@ -104,4 +113,24 @@ module "argo_cd" {
   repo_url        = local.chart_repo_url
   target_revision = local.git_branch
   chart_path      = "charts/django-app"
+}
+
+module "rds" {
+  source = "./modules/rds"
+
+  name_prefix    = "${local.project_name}-db"
+  use_aurora     = local.use_aurora
+  engine         = local.db_engine
+  engine_version = local.db_engine_ver
+  instance_class = local.db_instance_cls
+  multi_az       = local.db_multi_az
+
+  db_name  = local.db_name
+  username = local.db_username
+  password = local.db_password
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.public_subnet_ids
+
+  allowed_cidrs = ["10.0.0.0/16"]
 }
