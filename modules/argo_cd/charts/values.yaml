@@ -2,7 +2,7 @@ applications:
   - name: django-app
     namespace: django
     repoURL: https://github.com/PiotrJasinski1995/goit-devops-charts.git
-    targetRevision: lesson-8-9
+    targetRevision: final-project
     path: charts/django-app
 
 repositories: []

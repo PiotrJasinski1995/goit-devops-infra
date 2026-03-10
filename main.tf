@@ -35,7 +35,7 @@ locals {
 
   chart_repo_url = "https://github.com/PiotrJasinski1995/goit-devops-charts.git"
   app_repo_url   = "https://github.com/PiotrJasinski1995/goit-devops-app.git"
-  git_branch     = "lesson-8-9"
+  git_branch     = "final-project"
 
   db_name         = "appdb"
   db_username     = "dbadmin"
