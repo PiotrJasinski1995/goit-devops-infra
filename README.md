@@ -1,29 +1,59 @@
 # GoIT DevOps Infrastructure Project
 
-This repository contains the Infrastructure as Code part of the final DevOps project.  
-It provisions AWS and Kubernetes resources required to run a CI/CD pipeline based on **Terraform + Helm + Jenkins + Argo CD + ECR + EKS**.
+This repository contains the **Infrastructure as Code (IaC)** for the DevOps CI/CD pipeline project implemented with **Terraform, Kubernetes, Jenkins, Helm, Argo CD, and Amazon ECR**.
 
-## Related repositories
+The infrastructure provisions all required cloud resources and installs the CI/CD components inside a Kubernetes cluster.
+
+---
+
+# Related repositories
 
 This project works together with two additional repositories:
 
-- **Application repository:** `goit-devops-app`
-- **Helm charts repository:** `goit-devops-charts`
+Application repository  
+https://github.com/PiotrJasinski1995/goit-devops-app
 
-## Implemented infrastructure
+Helm charts repository  
+https://github.com/PiotrJasinski1995/goit-devops-charts
 
-The project includes:
+Repository roles:
 
-- **S3 + DynamoDB** backend for Terraform state
-- **VPC** with public subnets
-- **ECR** repository for Docker images
-- **EKS** cluster
-- **AWS EBS CSI Driver** for dynamic volume provisioning
-- **Jenkins** installed with Helm via Terraform
-- **Argo CD** installed with Helm via Terraform
-- **Argo CD application chart** for GitOps deployment
+**goit-devops-app**
 
-## Project structure
+- Django application
+- Dockerfile
+- Jenkins pipeline (Jenkinsfile)
+
+**goit-devops-charts**
+
+- Helm chart for the Django application
+- values.yaml updated automatically by Jenkins
+
+**goit-devops-infra (this repository)**
+
+- Terraform infrastructure
+- Kubernetes cluster
+- Jenkins deployment
+- Argo CD deployment
+
+---
+
+# Infrastructure components
+
+Terraform provisions and configures the following components:
+
+- S3 bucket for Terraform state
+- DynamoDB table for Terraform state locking
+- VPC networking
+- Amazon ECR repository for Docker images
+- Amazon EKS Kubernetes cluster
+- AWS EBS CSI Driver for persistent volumes
+- Jenkins installed via Helm
+- Argo CD installed via Helm
+
+---
+
+# Project structure
 
 ```
 .
@@ -40,100 +70,94 @@ The project includes:
     └── argo_cd/
 ```
 
-## How to apply Terraform
+---
 
-### 1. Initialize Terraform
+# How to apply Terraform
 
-```bash
+Initialize Terraform:
+
+```
 terraform init
 ```
 
-### 2. Create backend resources first
+Create backend resources (S3 + DynamoDB) if they do not exist:
 
-If the backend resources do not exist yet, apply the backend module first:
-
-```bash
+```
 terraform apply -target=module.s3_backend
 ```
 
-Then reinitialize Terraform if needed:
+Reinitialize Terraform if required:
 
-```bash
+```
 terraform init
 ```
 
-### 3. Deploy infrastructure
+Deploy the full infrastructure:
 
-```bash
+```
 terraform apply
 ```
 
-This creates the infrastructure needed for:
+Terraform will create:
 
 - EKS cluster
 - ECR repository
-- Jenkins
-- Argo CD
+- Jenkins deployment
+- Argo CD deployment
 
-## How to test the Jenkins job
+---
 
-Jenkins is installed in the `jenkins` namespace.
+# How to test the Jenkins job
 
-### Check Jenkins resources
+Jenkins runs inside the Kubernetes cluster.
 
-```bash
+Check Jenkins resources:
+
+```
 kubectl get pods -n jenkins
 kubectl get svc -n jenkins
 ```
 
-### Jenkins pipeline flow
+Jenkins pipeline is defined in the **goit-devops-app** repository.
 
-The Jenkins pipeline is defined in the **application repository** (`goit-devops-app`) in the `Jenkinsfile`.
+Pipeline workflow:
 
-The intended workflow is:
-
-1. Jenkins checks out the application repository
-2. Builds a Docker image from the `Dockerfile`
+1. Jenkins clones the application repository
+2. Builds a Docker image from the Dockerfile
 3. Pushes the image to Amazon ECR
-4. Updates the image tag in the Helm chart repository (`goit-devops-charts`)
-5. Pushes changes to the Git branch
+4. Updates the image tag in the Helm chart repository
+5. Pushes the updated values.yaml to Git
 
-### Notes
+The updated Helm chart is then detected by Argo CD.
 
-The project is designed to use:
+---
 
-- Kubernetes agent
-- Kaniko
-- Git-based update of the Helm chart values
+# How to view the result in Argo CD
 
-## How to view the result in Argo CD
+Check Argo CD resources:
 
-Argo CD is installed in the `argocd` namespace.
-
-### Check Argo CD resources
-
-```bash
+```
 kubectl get pods -n argocd
 kubectl get svc -n argocd
 ```
 
-### Access Argo CD
+If LoadBalancer access is unavailable, use port forwarding:
 
-If LoadBalancer access is not available, use port-forward:
-
-```bash
+```
 kubectl port-forward svc/argocd-server 8080:443 -n argocd
 ```
 
-Then open:
+Open in browser:
 
 ```
 https://localhost:8080
 ```
 
-### Argo CD workflow
+Argo CD monitors the Helm chart repository:
 
-Argo CD is configured to watch the Helm chart repository (`goit-devops-charts`).
+```
+https://github.com/PiotrJasinski1995/goit-devops-charts
+```
 
 When Jenkins updates the image tag in:
 
@@ -143,40 +167,39 @@ charts/django-app/values.yaml
 
 Argo CD detects the Git change and synchronizes the application in the cluster.
 
-## Important note about AWS limits
+---
 
-This project was implemented and tested on constrained AWS resources.  
-Because of AWS account limits for **On-Demand vCPU quota** and Kubernetes scheduling density on small worker nodes, running **all components simultaneously** on `t3.micro` instances may be limited.
+# AWS resource limitations
 
-During validation, the following infrastructure components were successfully prepared and tested in stages:
+The project was implemented and tested using limited AWS resources.  
+Because of AWS **On-Demand vCPU quotas** and Kubernetes scheduling limits for small instances (such as `t3.micro`), running all components simultaneously in a single cluster may be constrained.
 
-- Terraform modules
-- EKS cluster
-- ECR repository
-- Jenkins deployment
-- Argo CD deployment
-- Helm chart integration
+Infrastructure modules, Jenkins deployment, Argo CD deployment, and Helm chart integration were validated during the setup process.
 
-## Cleanup
+---
 
-To avoid unexpected AWS charges, destroy infrastructure after review:
+# Cleanup
 
-```bash
+To avoid unexpected AWS charges, remove all infrastructure after testing:
+
+```
 terraform destroy
 ```
 
-### Important
+Important:
 
-If backend resources are also removed, remember that the Terraform state backend consists of:
+Terraform backend uses:
 
 - S3 bucket
 - DynamoDB lock table
 
-After full cleanup, infrastructure must be recreated in the correct order again.
+If those resources are deleted, Terraform backend must be recreated before running the project again.
 
-## Branch for submission
+---
 
-The submission version of the project is prepared on the branch:
+# Submission branch
+
+The submission version of this project is prepared on the branch:
 
 ```
 lesson-8-9
