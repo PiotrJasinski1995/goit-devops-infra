@@ -1,4 +1,4 @@
-# GoIT DevOps Final Project - Infrastructure
+# GoIT DevOps Infrastructure Project
 
 This repository contains the Terraform infrastructure for the GoIT DevOps Final Project.
 
@@ -40,6 +40,53 @@ Repository responsibilities:
 
 ---
 
+## Project architecture
+
+The DevOps workflow implemented in this project follows a **GitOps deployment model**.
+
+```
+Developer
+   │
+   │ push code
+   ▼
+GitHub (goit-devops-app)
+   │
+   │ Jenkins pipeline
+   ▼
+Docker image build
+   │
+   ▼
+Amazon ECR
+   │
+   │ Jenkins updates Helm chart
+   ▼
+GitHub (goit-devops-charts)
+   │
+   │ Argo CD monitors repository
+   ▼
+Kubernetes cluster (EKS)
+   │
+   ├─ Django application
+   ├─ Horizontal Pod Autoscaler
+   └─ Kubernetes Services
+
+Monitoring stack:
+
+Prometheus + Grafana
+```
+
+Infrastructure is provisioned using **Terraform modules** including:
+
+- VPC networking
+- EKS Kubernetes cluster
+- Amazon ECR
+- RDS/Aurora database
+- Jenkins (Helm)
+- Argo CD (Helm)
+- Monitoring stack (Prometheus + Grafana)
+
+---
+
 ## Infrastructure components
 
 Terraform provisions the following AWS infrastructure:
@@ -72,19 +119,21 @@ This configuration provides network isolation and controlled service access insi
 
 ## Project structure
 
+```
 Project/
-├── main.tf  
-├── backend.tf  
-├── outputs.tf  
-└── modules/  
- ├── s3-backend/  
- ├── vpc/  
- ├── ecr/  
- ├── eks/  
- ├── rds/  
- ├── jenkins/  
- ├── argo_cd/  
- └── monitoring/
+├── main.tf
+├── backend.tf
+├── outputs.tf
+└── modules/
+    ├── s3-backend/
+    ├── vpc/
+    ├── ecr/
+    ├── eks/
+    ├── rds/
+    ├── jenkins/
+    ├── argo_cd/
+    └── monitoring/
+```
 
 Each component is implemented as a reusable Terraform module.
 
@@ -111,19 +160,23 @@ Monitoring is implemented using the Prometheus and Grafana stack deployed via He
 
 Monitoring components run inside the Kubernetes namespace:
 
-monitoring
+`monitoring`
 
 Verification command:
 
+```bash
 kubectl get all -n monitoring
+```
 
 Grafana access can be enabled using port forwarding:
 
+```bash
 kubectl port-forward svc/kube-prometheus-stack-grafana 3000:80 -n monitoring
+```
 
 Grafana will then be available at:
 
-http://localhost:3000
+`http://localhost:3000`
 
 Autoscaling is implemented using Kubernetes Horizontal Pod Autoscaler defined in the Helm chart for the Django application.
 
@@ -135,19 +188,23 @@ The HPA adjusts the number of pods depending on CPU usage.
 
 Jenkins is installed in the Kubernetes namespace:
 
-jenkins
+`jenkins`
 
 Check Jenkins resources:
 
+```bash
 kubectl get all -n jenkins
+```
 
 Access Jenkins locally:
 
+```bash
 kubectl port-forward svc/jenkins 8080:8080 -n jenkins
+```
 
 Open in browser:
 
-http://localhost:8080
+`http://localhost:8080`
 
 ---
 
@@ -155,25 +212,29 @@ http://localhost:8080
 
 Argo CD is installed in the namespace:
 
-argocd
+`argocd`
 
 Check Argo CD resources:
 
+```bash
 kubectl get all -n argocd
+```
 
 Access Argo CD locally:
 
+```bash
 kubectl port-forward svc/argocd-server 8081:443 -n argocd
+```
 
 Open in browser:
 
-https://localhost:8081
+`https://localhost:8081`
 
 ---
 
 ## RDS module
 
-The modules/rds module provides a reusable Terraform module for provisioning relational databases.
+The `modules/rds` module provides a reusable Terraform module for provisioning relational databases.
 
 Supported database types:
 
@@ -182,13 +243,15 @@ Supported database types:
 
 The database type is controlled by:
 
-use_aurora
+`use_aurora`
 
 ### RDS module behaviour
 
 If:
 
+```
 use_aurora = false
+```
 
 Terraform creates:
 
@@ -196,7 +259,9 @@ Terraform creates:
 
 If:
 
+```
 use_aurora = true
+```
 
 Terraform creates:
 
@@ -211,25 +276,27 @@ In both cases the module also creates:
 
 ### Example RDS module usage
 
+```hcl
 module "rds" {
-source = "./modules/rds"
+  source = "./modules/rds"
 
-name_prefix = "${local.project_name}-db"
-use_aurora = local.use_aurora
-engine = local.db_engine
-engine_version = local.db_engine_ver
-instance_class = local.db_instance_cls
-multi_az = local.db_multi_az
+  name_prefix = "${local.project_name}-db"
+  use_aurora = local.use_aurora
+  engine = local.db_engine
+  engine_version = local.db_engine_ver
+  instance_class = local.db_instance_cls
+  multi_az = local.db_multi_az
 
-db_name = local.db_name
-username = local.db_username
-password = local.db_password
+  db_name = local.db_name
+  username = local.db_username
+  password = local.db_password
 
-vpc_id = module.vpc.vpc_id
-subnet_ids = module.vpc.public_subnet_ids
+  vpc_id = module.vpc.vpc_id
+  subnet_ids = module.vpc.public_subnet_ids
 
-allowed_cidrs = ["10.0.0.0/16"]
+  allowed_cidrs = ["10.0.0.0/16"]
 }
+```
 
 ---
 
@@ -237,15 +304,21 @@ allowed_cidrs = ["10.0.0.0/16"]
 
 Initialize Terraform:
 
+```bash
 terraform init
+```
 
 Preview infrastructure changes:
 
+```bash
 terraform plan
+```
 
 Deploy infrastructure:
 
+```bash
 terraform apply
+```
 
 ---
 
@@ -253,15 +326,21 @@ terraform apply
 
 Check Jenkins resources:
 
+```bash
 kubectl get all -n jenkins
+```
 
 Check Argo CD resources:
 
+```bash
 kubectl get all -n argocd
+```
 
 Check monitoring resources:
 
+```bash
 kubectl get all -n monitoring
+```
 
 ---
 
@@ -277,6 +356,8 @@ For educational purposes, the infrastructure was designed in a production-style 
 
 To avoid unexpected AWS charges, remove the infrastructure after testing:
 
+```bash
 terraform destroy
+```
 
 Note that the Terraform backend uses S3 and DynamoDB resources for state management.
