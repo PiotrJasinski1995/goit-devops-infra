@@ -1,19 +1,19 @@
 # GoIT DevOps Infrastructure Project
 
-This repository contains the **Infrastructure as Code (IaC)** for the DevOps CI/CD pipeline project implemented with **Terraform, Kubernetes, Jenkins, Helm, Argo CD, and Amazon ECR**.
+This repository contains the Infrastructure as Code (IaC) for the DevOps project implemented using Terraform.
 
-The infrastructure provisions all required cloud resources and installs the CI/CD components inside a Kubernetes cluster.
+The infrastructure provisions a complete AWS environment for running a containerized Django application with Kubernetes and GitOps practices.
 
 ---
 
 # Related repositories
 
-This project works together with two additional repositories:
+This infrastructure works together with two additional repositories:
 
-Application repository  
+Application repository
 https://github.com/PiotrJasinski1995/goit-devops-app
 
-Helm charts repository  
+Helm charts repository
 https://github.com/PiotrJasinski1995/goit-devops-charts
 
 Repository roles:
@@ -22,7 +22,7 @@ Repository roles:
 
 - Django application
 - Dockerfile
-- Jenkins pipeline (Jenkinsfile)
+- Jenkins pipeline
 
 **goit-devops-charts**
 
@@ -35,21 +35,23 @@ Repository roles:
 - Kubernetes cluster
 - Jenkins deployment
 - Argo CD deployment
+- Reusable RDS / Aurora database module
 
 ---
 
 # Infrastructure components
 
-Terraform provisions and configures the following components:
+Terraform provisions and configures the following AWS components:
 
 - S3 bucket for Terraform state
 - DynamoDB table for Terraform state locking
 - VPC networking
-- Amazon ECR repository for Docker images
+- Amazon ECR repository
 - Amazon EKS Kubernetes cluster
-- AWS EBS CSI Driver for persistent volumes
+- AWS EBS CSI Driver
 - Jenkins installed via Helm
 - Argo CD installed via Helm
+- Reusable RDS / Aurora database module
 
 ---
 
@@ -67,12 +69,155 @@ Terraform provisions and configures the following components:
     ├── ecr/
     ├── eks/
     ├── jenkins/
-    └── argo_cd/
+    ├── argo_cd/
+    └── rds/
 ```
 
 ---
 
-# How to apply Terraform
+# RDS module
+
+The `modules/rds` module provides a reusable Terraform module for provisioning relational databases.
+
+The module supports two database types:
+
+• Standard RDS instance
+• Aurora cluster
+
+The type of database is controlled using the variable:
+
+```
+use_aurora
+```
+
+---
+
+# Database behaviour
+
+If:
+
+```
+use_aurora = false
+```
+
+Terraform creates:
+
+- aws_db_instance
+
+If:
+
+```
+use_aurora = true
+```
+
+Terraform creates:
+
+- aws_rds_cluster
+- aws_rds_cluster_instance (writer)
+
+---
+
+# Resources created automatically
+
+In both cases the module creates:
+
+- DB Subnet Group
+- Security Group
+- Parameter Group
+
+---
+
+# Supported database engines
+
+Standard RDS:
+
+- postgres
+- mysql
+
+Aurora:
+
+- aurora-postgresql
+- aurora-mysql
+
+---
+
+# Example usage
+
+```
+module "rds" {
+  source = "./modules/rds"
+
+  name_prefix    = "${local.project_name}-db"
+  use_aurora     = local.use_aurora
+  engine         = local.db_engine
+  engine_version = local.db_engine_ver
+  instance_class = local.db_instance_cls
+  multi_az       = local.db_multi_az
+
+  db_name  = local.db_name
+  username = local.db_username
+  password = local.db_password
+
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.public_subnet_ids
+
+  allowed_cidrs = ["10.0.0.0/16"]
+}
+```
+
+---
+
+# Important variables
+
+| Variable       | Description                            |
+| -------------- | -------------------------------------- |
+| use_aurora     | Switch between standard RDS and Aurora |
+| engine         | Database engine                        |
+| engine_version | Engine version                         |
+| instance_class | Database instance type                 |
+| multi_az       | Enable Multi-AZ for standard RDS       |
+| db_name        | Initial database name                  |
+| username       | Master username                        |
+| password       | Master password                        |
+| vpc_id         | VPC ID                                 |
+| subnet_ids     | Subnets used by the database           |
+| allowed_cidrs  | CIDR blocks allowed to connect         |
+
+---
+
+# Changing database type
+
+Standard PostgreSQL:
+
+```
+use_aurora = false
+engine     = "postgres"
+```
+
+Standard MySQL:
+
+```
+use_aurora = false
+engine     = "mysql"
+```
+
+Aurora PostgreSQL:
+
+```
+use_aurora = true
+engine     = "aurora-postgresql"
+```
+
+Aurora MySQL:
+
+```
+use_aurora = true
+engine     = "aurora-mysql"
+```
+
+---
+
+# Terraform usage
 
 Initialize Terraform:
 
@@ -80,127 +225,34 @@ Initialize Terraform:
 terraform init
 ```
 
-Create backend resources (S3 + DynamoDB) if they do not exist:
+Check infrastructure plan:
 
 ```
-terraform apply -target=module.s3_backend
+terraform plan
 ```
 
-Reinitialize Terraform if required:
-
-```
-terraform init
-```
-
-Deploy the full infrastructure:
+Apply infrastructure:
 
 ```
 terraform apply
 ```
 
-Terraform will create:
-
-- EKS cluster
-- ECR repository
-- Jenkins deployment
-- Argo CD deployment
-
 ---
 
-# How to test the Jenkins job
+# Cost notice
 
-Jenkins runs inside the Kubernetes cluster.
+Database services may generate AWS costs.
 
-Check Jenkins resources:
-
-```
-kubectl get pods -n jenkins
-kubectl get svc -n jenkins
-```
-
-Jenkins pipeline is defined in the **goit-devops-app** repository.
-
-Pipeline workflow:
-
-1. Jenkins clones the application repository
-2. Builds a Docker image from the Dockerfile
-3. Pushes the image to Amazon ECR
-4. Updates the image tag in the Helm chart repository
-5. Pushes the updated values.yaml to Git
-
-The updated Helm chart is then detected by Argo CD.
-
----
-
-# How to view the result in Argo CD
-
-Check Argo CD resources:
-
-```
-kubectl get pods -n argocd
-kubectl get svc -n argocd
-```
-
-If LoadBalancer access is unavailable, use port forwarding:
-
-```
-kubectl port-forward svc/argocd-server 8080:443 -n argocd
-```
-
-Open in browser:
-
-```
-https://localhost:8080
-```
-
-Argo CD monitors the Helm chart repository:
-
-```
-https://github.com/PiotrJasinski1995/goit-devops-charts
-```
-
-When Jenkins updates the image tag in:
-
-```
-charts/django-app/values.yaml
-```
-
-Argo CD detects the Git change and synchronizes the application in the cluster.
-
----
-
-# AWS resource limitations
-
-The project was implemented and tested using limited AWS resources.  
-Because of AWS **On-Demand vCPU quotas** and Kubernetes scheduling limits for small instances (such as `t3.micro`), running all components simultaneously in a single cluster may be constrained.
-
-Infrastructure modules, Jenkins deployment, Argo CD deployment, and Helm chart integration were validated during the setup process.
+It is recommended to validate the configuration using `terraform plan` before applying infrastructure.
 
 ---
 
 # Cleanup
 
-To avoid unexpected AWS charges, remove all infrastructure after testing:
+To avoid unexpected AWS charges remove infrastructure after testing:
 
 ```
 terraform destroy
 ```
 
-Important:
-
-Terraform backend uses:
-
-- S3 bucket
-- DynamoDB lock table
-
-If those resources are deleted, Terraform backend must be recreated before running the project again.
-
----
-
-# Submission branch
-
-The submission version of this project is prepared on the branch:
-
-```
-lesson-8-9
-```
+Important: Terraform backend uses S3 and DynamoDB resources for state management.
